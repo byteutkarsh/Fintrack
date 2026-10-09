@@ -55,10 +55,10 @@ function fmt(n) {
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
-let transactions = JSON.parse(localStorage.getItem("ft_transactions")) || [];
-let budgets      = JSON.parse(localStorage.getItem("ft_budgets"))      || {};
-let goals        = JSON.parse(localStorage.getItem("ft_goals"))        || [];
-let bills        = JSON.parse(localStorage.getItem("ft_bills"))        || [];
+let transactions = loadStored("ft_transactions", []);
+let budgets      = loadStored("ft_budgets", {});
+let goals        = loadStored("ft_goals", []);
+let bills        = loadStored("ft_bills", []);
 let darkMode     = localStorage.getItem("ft_dark") === "true";
 let currentChartType = "doughnut";
 let currentTxType    = "expense"; // "expense" or "income"
@@ -82,6 +82,9 @@ const CATEGORY_ICONS = {
 };
 
 const iconMarkup = (name, cls = "ui-icon") => `<svg class="${cls}" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
+const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[char]));
 const getIcon = cat => iconMarkup(CATEGORY_ICONS[cat] || "other");
 const EMOJI_REGEX = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D)/gu;
 const stripEmoji = text => String(text || "").replace(EMOJI_REGEX, "").replace(/\s{2,}/g, " ").trim();
@@ -392,7 +395,7 @@ function renderGoals() {
     return `
       <div class="goal-card">
         <div class="goal-emoji">${badge}</div>
-        <div class="goal-name">${g.name}</div>
+        <div class="goal-name">${escapeHTML(g.name)}</div>
         <div class="goal-amounts">${fmt(g.saved)} / ${fmt(g.target)}</div>
         <div class="goal-progress-wrap">
           <div class="goal-progress-bar" style="width:${pct}%;background:${pct >= 100 ? "var(--income)" : "var(--primary)"}"></div>
@@ -411,7 +414,7 @@ function renderGoals() {
     return `
       <div class="budget-item ok" style="flex-direction:column;align-items:flex-start">
         <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
-          <span style="font-weight:600">${badge} ${g.name}</span>
+          <span style="font-weight:600">${badge} ${escapeHTML(g.name)}</span>
           <button class="budget-remove" onclick="removeGoal(${g.id})">✕</button>
         </div>
         <div class="budget-bar-wrap" style="width:100%;margin-top:6px">
@@ -514,7 +517,7 @@ function renderDueSoon() {
           return `<div class="due-soon-item">
             <div class="due-item-left">
               <span class="due-badge ${urgency}">${label}</span>
-              <span class="due-item-name">${b.name}</span>
+              <span class="due-item-name">${escapeHTML(b.name)}</span>
             </div>
             <span class="due-item-amount">${fmt(b.amount)}</span>
           </div>`;
@@ -544,7 +547,7 @@ function renderBills() {
           ${iconMarkup("bills")}
         </div>
         <div class="bill-info">
-          <div class="bill-name">${b.name}</div>
+          <div class="bill-name">${escapeHTML(b.name)}</div>
           <div class="bill-meta">${repeatLabel} · Due ${formatDate(b.dueDate)}</div>
         </div>
         <div class="bill-right">
@@ -568,21 +571,36 @@ document.getElementById("importFile").addEventListener("change", e => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    const lines = ev.target.result.split("\n").filter(l => l.trim());
+    const rows = parseCSV(ev.target.result);
+    if (rows.length < 2) {
+      showToast("CSV file has no transaction rows");
+      return;
+    }
+    const headers = rows[0].map(value => value.trim().toLowerCase());
+    const column = (name, fallback) => {
+      const index = headers.indexOf(name);
+      return index < 0 ? fallback : index;
+    };
+    const dateIndex = column("date", 0);
+    const textIndex = column("description", 1);
+    const categoryIndex = column("category", 2);
+    const amountIndex = column("amount", 3);
+    const noteIndex = column("note", 5);
+    const recurringIndex = column("recurring", 6);
     let imported = 0, skipped = 0;
-    lines.slice(1).forEach(line => {
-      const cols = line.split(",").map(c => c.replace(/^"|"$/g, "").trim());
-      const [date, text, category, amount, , note] = cols;
-      const amt = parseFloat(amount);
-      if (!text || isNaN(amt)) { skipped++; return; }
+    rows.slice(1).forEach(cols => {
+      if (cols.every(value => !value.trim())) return;
+      const text = (cols[textIndex] || "").trim();
+      const amt = Number.parseFloat(cols[amountIndex]);
+      if (!text || !Number.isFinite(amt)) { skipped++; return; }
       transactions.unshift({
         id: Date.now() + Math.random(),
         text,
         amount: amt,
-        category: category || "Other",
-        note: note || "",
-        date: date || today(),
-        recurring: null
+        category: (cols[categoryIndex] || "").trim() || "Other",
+        note: (cols[noteIndex] || "").trim(),
+        date: (cols[dateIndex] || "").trim() || today(),
+        recurring: (cols[recurringIndex] || "").trim() || null
       });
       imported++;
     });
@@ -596,9 +614,9 @@ document.getElementById("importFile").addEventListener("change", e => {
 
 document.getElementById("exportBtn").addEventListener("click", () => {
   if (!transactions.length) return showToast("No transactions to export");
-  const rows = transactions.map(t =>
-    [t.date, `"${t.text}"`, `"${t.category}"`, t.amount, getCurrency().code, `"${t.note || ""}"`, t.recurring || ""].join(",")
-  );
+  const rows = transactions.map(t => [
+    t.date, t.text, t.category, t.amount, getCurrency().code, t.note || "", t.recurring || ""
+  ].map(escapeCSV).join(","));
   download(["Date,Description,Category,Amount,Currency,Note,Recurring", ...rows].join("\n"),
     `fintrack_${today()}.csv`, "text/csv");
   showToast("CSV exported ✓");
@@ -687,8 +705,8 @@ function render() {
       <div class="swipe-delete-bg">${iconMarkup("trash")}</div>
       <div class="tx-icon ${isInc ? "income" : "expense"}">${getIcon(t.category)}</div>
       <div class="tx-info">
-        <div class="tx-name" title="${t.text}">${t.text}${t.recurring ? ` <span class="recurring-badge">${t.recurring}</span>` : ""}</div>
-        <div class="tx-meta">${t.category}${t.note ? " · " + t.note : ""}</div>
+        <div class="tx-name" title="${escapeHTML(t.text)}">${escapeHTML(t.text)}${t.recurring ? ` <span class="recurring-badge">${escapeHTML(t.recurring)}</span>` : ""}</div>
+        <div class="tx-meta">${escapeHTML(t.category)}${t.note ? " · " + escapeHTML(t.note) : ""}</div>
       </div>
       <div class="tx-right">
         <div class="tx-amount ${isInc ? "income" : "expense"}">${isInc ? "+" : "−"}${fmt(Math.abs(t.amount))}</div>
@@ -1106,19 +1124,19 @@ function buildReport() {
     <tbody>${sortedCats.map(([cat, amt]) => {
       const count = transactions.filter(t => t.category === cat && t.amount < 0).length;
       const pct = totalExpense > 0 ? ((amt / totalExpense) * 100).toFixed(1) : 0;
-      return `<tr><td>${getIcon(cat)} ${cat}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmt(amt)}</td>
+      return `<tr><td>${getIcon(cat)} ${escapeHTML(cat)}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmt(amt)}</td>
         <td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--border);border-radius:99px;overflow:hidden"><div style="width:${Math.min(100, parseFloat(pct))}%;height:100%;background:var(--primary);border-radius:99px"></div></div><span style="font-size:.78rem;color:var(--muted);width:36px">${pct}%</span></div></td>
         <td style="color:var(--muted)">${count}</td></tr>`;
     }).join("")}</tbody></table>` : `<div class="empty-state">No expense data recorded</div>`;
 
   const top5Exp = [...transactions].filter(t => t.amount < 0).sort((a, b) => a.amount - b.amount).slice(0, 5);
   document.getElementById("reportTopExp").innerHTML = top5Exp.length
-    ? top5Exp.map((t, i) => `<div class="top-tx-item"><div class="top-tx-rank">${i + 1}</div><div class="tx-icon expense" style="width:30px;height:30px">${getIcon(t.category)}</div><div class="top-tx-info"><div class="top-tx-name">${t.text}</div><div class="top-tx-cat">${t.category} · ${formatDate(t.date)}</div></div><div class="top-tx-amt expense-text">−${fmt(Math.abs(t.amount))}</div></div>`).join("")
+    ? top5Exp.map((t, i) => `<div class="top-tx-item"><div class="top-tx-rank">${i + 1}</div><div class="tx-icon expense" style="width:30px;height:30px">${getIcon(t.category)}</div><div class="top-tx-info"><div class="top-tx-name">${escapeHTML(t.text)}</div><div class="top-tx-cat">${escapeHTML(t.category)} · ${formatDate(t.date)}</div></div><div class="top-tx-amt expense-text">−${fmt(Math.abs(t.amount))}</div></div>`).join("")
     : `<div class="empty-state">No expenses</div>`;
 
   const top5Inc = [...transactions].filter(t => t.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 5);
   document.getElementById("reportTopInc").innerHTML = top5Inc.length
-    ? top5Inc.map((t, i) => `<div class="top-tx-item"><div class="top-tx-rank" style="background:var(--income-bg);color:var(--income)">${i + 1}</div><div class="tx-icon income" style="width:30px;height:30px">${getIcon(t.category)}</div><div class="top-tx-info"><div class="top-tx-name">${t.text}</div><div class="top-tx-cat">${t.category} · ${formatDate(t.date)}</div></div><div class="top-tx-amt income-text">+${fmt(t.amount)}</div></div>`).join("")
+    ? top5Inc.map((t, i) => `<div class="top-tx-item"><div class="top-tx-rank" style="background:var(--income-bg);color:var(--income)">${i + 1}</div><div class="tx-icon income" style="width:30px;height:30px">${getIcon(t.category)}</div><div class="top-tx-info"><div class="top-tx-name">${escapeHTML(t.text)}</div><div class="top-tx-cat">${escapeHTML(t.category)} · ${formatDate(t.date)}</div></div><div class="top-tx-amt income-text">+${fmt(t.amount)}</div></div>`).join("")
     : `<div class="empty-state">No income records</div>`;
 
   document.getElementById("reportMonthTable").innerHTML = `
@@ -1159,6 +1177,41 @@ themeToggle.addEventListener("click", () => {
 // ══════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════
+function loadStored(key, fallback) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key));
+    if (Array.isArray(fallback)) return Array.isArray(value) ? value : fallback;
+    return value && typeof value === "object" && !Array.isArray(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function parseCSV(source) {
+  const rows = [];
+  let row = [], field = "", quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (quoted) {
+      if (char === '"' && source[i + 1] === '"') { field += '"'; i++; }
+      else if (char === '"') quoted = false;
+      else field += char;
+    } else if (char === '"' && field === "") quoted = true;
+    else if (char === ",") { row.push(field); field = ""; }
+    else if (char === "\n" || char === "\r") {
+      if (char === "\r" && source[i + 1] === "\n") i++;
+      row.push(field); rows.push(row); row = []; field = "";
+    } else field += char;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function escapeCSV(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 function save()       { localStorage.setItem("ft_transactions", JSON.stringify(transactions)); }
 function saveBudgets() { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); }
 function saveGoals()  { localStorage.setItem("ft_goals", JSON.stringify(goals)); }
