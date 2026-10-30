@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinTrack — Personal Finance Tracker</title>
+  <link rel="shortcut icon" href="logo-FinTrack.png" type="image/x-icon">
+  <meta name="theme-color" content="#3f6b57" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="FinTrack" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Navigation & Brand -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand">
+          <span class="brand-icon" id="brandIcon">₹</span>
+          <div class="brand-info">
+            <h1>FinTrack</h1>
+            <span class="brand-tagline">Personal Finance</span>
+          </div>
+        </div>
+        <button id="currencyBtn" class="currency-pill" title="Change currency" aria-label="Change currency">
+          <span class="currency-pill-flag" id="headerCurrencyFlag">IN</span>
+          <span class="currency-pill-code" id="headerCurrencyCode">INR</span>
+          <svg class="ui-icon chevron-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+        </button>
+      </div>
+
+      <div class="header-actions">
+        <!-- Feature Highlights -->
+        <div class="action-group main-actions">
+          <button id="billsBtn" class="btn-bills btn-with-icon" title="View Bill Reminders">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-bell"></use></svg>
+            <span>Bills</span>
+            <span id="billsDueBadge" class="action-badge" style="display:none">0</span>
+          </button>
+          <button id="reportBtn" class="btn-report btn-with-icon" title="View Full Financial Report">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"></use></svg>
+            <span>Report</span>
+          </button>
+        </div>
+
+        <!-- Secondary Utilities -->
+        <div class="action-group util-actions">
+          <button id="exportBtn" class="btn-secondary sm" title="Export transactions as CSV">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-download"></use></svg>
+            <span>Export</span>
+          </button>
+          <button id="importBtn" class="btn-secondary sm" title="Import transactions from CSV">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
+            <span>Import</span>
+          </button>
+          <input type="file" id="importFile" accept=".csv" style="display:none" />
+          <button id="clearBtn" class="btn-ghost-danger sm" title="Reset all transactions" aria-label="Clear all transactions">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+          </button>
+          <button id="themeToggle" class="btn-icon icon-only" aria-label="Toggle theme" title="Toggle theme"></button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Greeting -->
+    <section class="greeting-banner">
+      <div class="greeting-content">
+        <div class="greeting-text-wrap">
+          <h2 class="greeting-title" id="greetingText">Welcome back</h2>
+          <p class="greeting-date" id="greetingDate">Saturday, September 5, 2026</p>
+        </div>
+        <p class="financial-status-chip" id="financialStatusChip">
+          <span class="status-text" id="financialStatusText">Your money, at a glance</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- Dashboard Stat Cards -->
+    <section class="dashboard">
+      <div class="card stat-card balance-card">
+        <div class="stat-header-row">
+          <span class="stat-label">Total Balance</span>
+          <span class="stat-sub-badge" id="balanceTrend">Net Cash</span>
+        </div>
+        <div class="stat-value" id="balance">0</div>
+        <div class="stat-bar"><div id="balanceBar" class="bar-fill"></div></div>
+        <div class="stat-footer-note" id="balanceNote">Cash in hand</div>
+      </div>
+
+      <div class="card stat-card income-card">
+        <div class="stat-header-row">
+          <span class="stat-label">Total Income</span>
+          <span class="stat-pill income-pill">↑ In</span>
+        </div>
+        <div class="stat-value income-text" id="income">0</div>
+        <div class="stat-footer-note" id="incomeNote">Earned so far</div>
+      </div>
+
+      <div class="card stat-card expense-card">
+        <div class="stat-header-row">
+          <span class="stat-label">Total Expenses</span>
+          <span class="stat-pill expense-pill">↓ Out</span>
+        </div>
+        <div class="stat-value expense-text" id="expense">0</div>
+        <div class="stat-footer-note" id="expenseNote">Spent so far</div>
+      </div>
+
+      <div class="card stat-card savings-card">
+        <div class="stat-header-row">
+          <span class="stat-label">Savings Rate</span>
+          <span class="stat-pill savings-pill" id="savingsPill">Target 20%+</span>
+        </div>
+        <div class="stat-value" id="savingsRate">0%</div>
+        <div class="stat-footer-note" id="savingsNote">Of total income saved</div>
+      </div>
+    </section>
+
+    <!-- Due Soon Strip -->
+    <section id="dueSoonStrip" style="display:none"></section>
+
+    <!-- Savings Goals Strip -->
+    <section id="goalsStrip" class="goals-strip" style="display:none"></section>
+
+    <section class="main-grid">
+
+      <!-- Form Card -->
+      <div class="card form-card">
+        <div class="form-header">
+          <h3 class="card-title">New Entry</h3>
+          <span class="form-helper-text">Add money in or out</span>
+        </div>
+
+        <!-- Segmented Type Selector -->
+        <div class="type-segmented-control" role="group" aria-label="Transaction Type">
+          <button type="button" class="type-segment active expense" id="typeExpenseBtn" data-type="expense">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-down-circle"></use></svg>
+            <span>Expense</span>
+          </button>
+          <button type="button" class="type-segment income" id="typeIncomeBtn" data-type="income">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-up-circle"></use></svg>
+            <span>Income</span>
+          </button>
+        </div>
+
+        <!-- Quick Pick Categories -->
+        <div class="quick-category-section">
+          <span class="quick-cat-label">Quick Pick:</span>
+          <div class="quick-category-chips" id="quickCategoryChips">
+            <button type="button" class="category-chip" data-category="Food & Dining">🍔 Food</button>
+            <button type="button" class="category-chip" data-category="Shopping">🛍️ Shop</button>
+            <button type="button" class="category-chip" data-category="Transport">🚗 Commute</button>
+            <button type="button" class="category-chip" data-category="Bills & Utilities">⚡ Bills</button>
+            <button type="button" class="category-chip" data-category="Entertainment">🎬 Fun</button>
+            <button type="button" class="category-chip" data-category="Salary">💼 Salary</button>
+          </div>
+        </div>
+
+        <form id="transactionForm">
+          <div class="form-row">
+            <label for="text">Description</label>
+            <input type="text" id="text" placeholder="e.g. Grocery shopping, Coffee, Salary" required />
+          </div>
+
+          <div class="form-row">
+            <label for="amount">Amount</label>
+            <div class="amount-input-wrap">
+              <span id="amountPrefix" class="amount-prefix">₹</span>
+              <input type="number" id="amount" placeholder="0" min="0.01" step="any" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label for="category">Category</label>
+            <div class="select-wrapper">
+              <select id="category">
+                <option value="">Select category…</option>
+                <option>Food & Dining</option><option>Transport</option>
+                <option>Shopping</option><option>Entertainment</option>
+                <option>Health</option><option>Bills & Utilities</option>
+                <option>Education</option><option>Salary</option>
+                <option>Freelance</option><option>Investment</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <details class="optional-fields">
+            <summary>More details <span>date, repeat, note</span></summary>
+            <div class="form-row-group">
+              <div class="form-row">
+                <label for="date">Date</label>
+                <input type="date" id="date" />
+              </div>
+
+              <div class="form-row">
+                <label for="recurring">Repeat</label>
+                <div class="select-wrapper">
+                  <select id="recurring">
+                    <option value="">One time</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="note">Note <span class="hint">(optional)</span></label>
+              <input type="text" id="note" placeholder="Add a note" />
+            </div>
+          </details>
+
+          <button type="submit" id="submitTxBtn" class="btn-primary full-width submit-tx-btn">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+            <span id="submitBtnText">+ Add Expense</span>
+          </button>
+        </form>
+
+        <!-- Budget -->
+        <div class="budget-section">
+          <div class="section-title-row">
+            <h4>Monthly Budgets</h4>
+            <span class="section-subtext">Set spending limits</span>
+          </div>
+          <div class="budget-row">
+            <div class="select-wrapper sm">
+              <select id="budgetCategory">
+                <option value="">Category…</option>
+                <option>Food & Dining</option><option>Transport</option>
+                <option>Shopping</option><option>Entertainment</option>
+                <option>Health</option><option>Bills & Utilities</option>
+                <option>Education</option><option>Other</option>
+              </select>
+            </div>
+            <input type="number" id="budgetAmount" placeholder="Limit" />
+            <button onclick="setBudget()" class="btn-secondary sm">Set</button>
+          </div>
+          <div id="budgetList"></div>
+        </div>
+
+        <!-- Savings Goals -->
+        <div class="budget-section">
+          <div class="section-title-row">
+            <h4>Savings Goals</h4>
+            <span class="section-subtext">Track what you're saving for</span>
+          </div>
+          <div class="goal-add-row">
+            <input type="text" id="goalName" placeholder="Goal name…" />
+            <input type="number" id="goalTarget" placeholder="Target" />
+            <input type="text" id="goalEmoji" placeholder="SG" maxlength="2" style="width:48px;text-align:center" />
+            <button onclick="addGoal()" class="btn-secondary sm">Add</button>
+          </div>
+          <div id="goalsList"></div>
+        </div>
+
+      </div>
+
+      <!-- Transactions -->
+      <div class="card list-card">
+        <div class="list-header">
+          <div class="list-title-wrap">
+            <h3 class="card-title">Transactions</h3>
+            <span class="list-subtitle" id="txCountSubtitle">0 records</span>
+          </div>
+          <div class="list-controls">
+            <!-- Filter Pills -->
+            <div class="tx-filter-pills" role="tablist">
+              <button type="button" class="filter-pill active" data-filter="all">All</button>
+              <button type="button" class="filter-pill" data-filter="expense">Expenses</button>
+              <button type="button" class="filter-pill" data-filter="income">Income</button>
+            </div>
+            <div class="list-search-wrap">
+              <input type="text" id="searchInput" placeholder="Search..." class="search-input" />
+              <input type="month" id="monthFilter" class="month-filter" title="Filter by month" />
+            </div>
+          </div>
+        </div>
+
+        <ul id="transactionList"></ul>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <div class="empty-state-icon">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-wallet"></use></svg>
+          </div>
+          <p class="empty-state-title">No transactions found</p>
+          <p class="empty-state-text">Use the form to log your expenses or income and start tracking your journey.</p>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <div class="chart-title-wrap">
+            <h3 class="card-title">Spending Breakdown</h3>
+            <span class="chart-subtext" id="chartCategoryCount">By category</span>
+          </div>
+          <div class="chart-tabs">
+            <button class="tab-btn active" onclick="switchChart('doughnut',this)">Donut</button>
+            <button class="tab-btn" onclick="switchChart('bar',this)">Bars</button>
+          </div>
+        </div>
+        <div class="chart-canvas-wrap">
+          <canvas id="expenseChart"></canvas>
+        </div>
+        <div id="noChartData" class="empty-state" style="display:none">
+          <div class="empty-state-icon">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"></use></svg>
+          </div>
+          <p class="empty-state-title">No expense data to display</p>
+          <p class="empty-state-text">Add your everyday expenses to view visual charts here.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Warm Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p class="footer-text">FinTrack · Handcrafted for your personal financial peace of mind</p>
+        <p class="footer-subtext">Private &amp; local-first · Your data stays in your browser</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ══ BILLS MODAL ══ -->
+  <div id="billsModal" class="modal-overlay" style="display:none" onclick="billsOverlayClose(event)">
+    <div class="modal-box bills-modal-box">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-header-icon bills-icon-bg"><svg class="ui-icon" aria-hidden="true"><use href="#icon-bell"></use></svg></div>
+          <div>
+            <h2 class="modal-title">Bill Reminders</h2>
+            <p class="modal-sub">Stay ahead of due dates without stress</p>
+          </div>
+        </div>
+        <button onclick="closeBillsModal()" class="btn-icon icon-only" aria-label="Close bills"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+      </div>
+      <div class="bills-modal-body">
+        <div class="bill-add-form">
+          <h4 class="section-label">Add a New Bill</h4>
+          <div class="bill-form-grid">
+            <input type="text" id="billName" placeholder="Bill name (e.g. Rent, Electricity, Netflix)" />
+            <input type="number" id="billAmount" placeholder="Amount" />
+            <input type="date" id="billDueDate" />
+            <div class="select-wrapper">
+              <select id="billRepeat">
+                <option value="once">One time</option>
+                <option value="monthly" selected>Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="addBill()" class="btn-primary" style="margin-top:10px;padding:10px 24px">+ Add Bill</button>
+        </div>
+        <div id="billsList" class="bills-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CURRENCY MODAL ══ -->
+  <div id="currencyModal" class="modal-overlay" style="display:none" onclick="currencyOverlayClose(event)">
+    <div class="modal-box currency-modal-box">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">Select Currency</h2>
+          <p class="modal-sub" id="currentCurrencyLabel"></p>
+        </div>
+        <button onclick="closeCurrencyModal()" class="btn-icon icon-only" aria-label="Close currency picker"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+      </div>
+      <div style="padding:20px 28px 28px">
+        <input type="text" id="currencySearch" placeholder="Search currency or country..." style="margin-bottom:16px" />
+        <div id="currencyGrid" class="currency-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REPORT MODAL ══ -->
+  <div id="reportModal" class="modal-overlay" style="display:none" onclick="overlayClose(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">Financial Report &amp; Analytics</h2>
+          <p class="modal-sub" id="reportPeriod"></p>
+        </div>
+        <div class="modal-actions">
+          <button onclick="exportReport()" class="btn-secondary">Print / PDF</button>
+          <button onclick="closeReport()" class="btn-icon icon-only" aria-label="Close report"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+        </div>
+      </div>
+      <div class="report-body">
+        <div class="report-summary" id="reportSummary"></div>
+        <div class="report-charts-row">
+          <div class="report-chart-box"><div class="rc-title">Monthly Income vs Expenses</div><canvas id="rLineChart"></canvas></div>
+          <div class="report-chart-box"><div class="rc-title">Spending by Category</div><canvas id="rDonutChart"></canvas></div>
+          <div class="report-chart-box"><div class="rc-title">Net Balance per Month</div><canvas id="rBarChart"></canvas></div>
+        </div>
+        <div class="report-section"><div class="rc-title">Category Breakdown</div><div id="reportCatTable"></div></div>
+        <div class="report-two-col">
+          <div class="report-section"><div class="rc-title">Top 5 Expenses</div><div id="reportTopExp"></div></div>
+          <div class="report-section"><div class="rc-title">Top 5 Income Sources</div><div id="reportTopInc"></div></div>
+        </div>
+        <div class="report-section"><div class="rc-title">Month-by-Month Summary</div><div id="reportMonthTable"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- SVG Icon Spritesheet -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-spark" viewBox="0 0 24 24">
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"></path>
+    </symbol>
+    <symbol id="icon-heartbeat" viewBox="0 0 24 24">
+      <path d="M20.4 4.6a5.5 5.5 0 0 0-7.8 0L12 5.2l-.6-.6a5.5 5.5 0 0 0-7.8 7.8l.6.6L12 20.8l7.8-7.8.6-.6a5.5 5.5 0 0 0 0-7.8z"></path>
+      <path d="M3.5 12h4l1.5-3 2.5 6 1.5-3H16"></path>
+    </symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24">
+      <path d="M15 17H5.5a1 1 0 0 1-.8-1.6L6 13.7V10a6 6 0 1 1 12 0v3.7l1.3 1.7a1 1 0 0 1-.8 1.6H15"></path>
+      <path d="M9.5 17a2.5 2.5 0 0 0 5 0"></path>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+      <path d="M4 7h16"></path>
+      <path d="M10 11v6"></path>
+      <path d="M14 11v6"></path>
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path>
+      <path d="M9 7V4h6v3"></path>
+    </symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24">
+      <path d="M18 6L6 18"></path>
+      <path d="M6 6l12 12"></path>
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24">
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path>
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2"></path>
+      <path d="M12 20v2"></path>
+      <path d="M4.9 4.9l1.4 1.4"></path>
+      <path d="M17.7 17.7l1.4 1.4"></path>
+      <path d="M2 12h2"></path>
+      <path d="M20 12h2"></path>
+      <path d="M4.9 19.1l1.4-1.4"></path>
+      <path d="M17.7 6.3l1.4-1.4"></path>
+    </symbol>
+    <symbol id="icon-food" viewBox="0 0 24 24">
+      <path d="M4 3v7"></path>
+      <path d="M7 3v7"></path>
+      <path d="M4 7h3"></path>
+      <path d="M5.5 10v11"></path>
+      <path d="M14 3v8"></path>
+      <path d="M17 3v18"></path>
+      <path d="M14 11c1.7 0 3-1.3 3-3V3"></path>
+    </symbol>
+    <symbol id="icon-transport" viewBox="0 0 24 24">
+      <path d="M5 15l1.5-5A2 2 0 0 1 8.4 8h7.2a2 2 0 0 1 1.9 2L19 15"></path>
+      <path d="M4 15h16"></path>
+      <path d="M7 15v3"></path>
+      <path d="M17 15v3"></path>
+      <path d="M7.5 18.5h0"></path>
+      <path d="M16.5 18.5h0"></path>
+    </symbol>
+    <symbol id="icon-shopping" viewBox="0 0 24 24">
+      <path d="M6 8h12l-1 10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 8z"></path>
+      <path d="M9 8V7a3 3 0 0 1 6 0v1"></path>
+    </symbol>
+    <symbol id="icon-entertainment" viewBox="0 0 24 24">
+      <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+      <path d="M10 9l5 3-5 3z"></path>
+    </symbol>
+    <symbol id="icon-health" viewBox="0 0 24 24">
+      <path d="M20.4 4.6a5.5 5.5 0 0 0-7.8 0L12 5.2l-.6-.6a5.5 5.5 0 0 0-7.8 7.8l.6.6L12 20.8l7.8-7.8.6-.6a5.5 5.5 0 0 0 0-7.8z"></path>
+      <path d="M3.5 12h4l1.5-3 2.5 6 1.5-3H16"></path>
+    </symbol>
+    <symbol id="icon-bills" viewBox="0 0 24 24">
+      <path d="M7 3h10v18l-2-1-3 1-3-1-2 1V3z"></path>
+      <path d="M9 8h6"></path>
+      <path d="M9 12h6"></path>
+      <path d="M9 16h4"></path>
+    </symbol>
+    <symbol id="icon-education" viewBox="0 0 24 24">
+      <path d="M3 7l9-4 9 4-9 4-9-4z"></path>
+      <path d="M6 9.5V15l6 3 6-3V9.5"></path>
+    </symbol>
+    <symbol id="icon-salary" viewBox="0 0 24 24">
+      <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+      <path d="M8 10h8"></path>
+      <path d="M12 6v12"></path>
+    </symbol>
+    <symbol id="icon-freelance" viewBox="0 0 24 24">
+      <rect x="4" y="5" width="16" height="11" rx="2"></rect>
+      <path d="M8 19h8"></path>
+      <path d="M12 16v3"></path>
+    </symbol>
+    <symbol id="icon-investment" viewBox="0 0 24 24">
+      <path d="M4 19h16"></path>
+      <path d="M6 15l4-4 3 3 5-6"></path>
+      <path d="M15 8h3v3"></path>
+    </symbol>
+    <symbol id="icon-other" viewBox="0 0 24 24">
+      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"></path>
+      <path d="M4 7.5L12 12l8-4.5"></path>
+      <path d="M12 12v9"></path>
+    </symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24">
+      <path d="M4 19h16"></path>
+      <path d="M7 15v-4"></path>
+      <path d="M12 15V7"></path>
+      <path d="M17 15v-6"></path>
+    </symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 10v6"></path>
+      <path d="M12 7h.01"></path>
+    </symbol>
+    <symbol id="icon-wallet" viewBox="0 0 24 24">
+      <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5z"></path>
+      <path d="M16 12h5"></path>
+      <circle cx="18.5" cy="12" r="1"></circle>
+    </symbol>
+    <symbol id="icon-arrow-down-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="8 12 12 16 16 12"></polyline>
+      <line x1="12" y1="8" x2="12" y2="16"></line>
+    </symbol>
+    <symbol id="icon-arrow-up-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="16 12 12 8 8 12"></polyline>
+      <line x1="12" y1="16" x2="12" y2="8"></line>
+    </symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7 10 12 15 17 10"></polyline>
+      <line x1="12" y1="15" x2="12" y2="3"></line>
+    </symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="17 8 12 3 7 8"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
+    </symbol>
+  </svg>
+  <script src="script.js"></script>
+</body>
+</html>
