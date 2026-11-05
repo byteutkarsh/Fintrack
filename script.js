@@ -988,15 +988,22 @@ function updateCurrencyUI() {
 //  REPORT MODAL
 // ══════════════════════════════════════════════
 document.getElementById("reportBtn").addEventListener("click", openReport);
-document.getElementById("insightsBtn").addEventListener("click", generateInsights);
+document.getElementById("aiInsightsBtn").addEventListener("click", generateInsights);
 
 async function generateInsights() {
-  const button = document.getElementById("insightsBtn");
+  const button = document.getElementById("aiInsightsBtn");
   const output = document.getElementById("insightsResult");
   const recentTransactions = [...transactions]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-    .slice(0, 20)
-    .map(({ date, text, category, amount }) => ({ date, text, category, amount }));
+    .slice(0, 50)
+    .map(({ date, text, category, amount }) => ({
+      date: String(date || ""),
+      text: String(text || ""),
+      category: String(category || "Other"),
+      amount: Number(amount),
+    }));
+
+  openInsightsModal();
 
   if (!recentTransactions.length) {
     output.textContent = "Add transactions before requesting insights.";
@@ -1015,12 +1022,28 @@ async function generateInsights() {
     if (!response.ok) {
       throw new Error(data.error || "Could not generate insights.");
     }
-    output.textContent = data.text;
+    output.textContent = typeof data.text === "string" && data.text.trim()
+      ? data.text
+      : "The AI service returned an empty response. Please try again.";
   } catch (error) {
     output.textContent = error.message || "Could not generate insights. Please try again.";
   } finally {
     button.disabled = false;
   }
+}
+
+function openInsightsModal() {
+  document.getElementById("insightsModal").style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closeInsightsModal() {
+  document.getElementById("insightsModal").style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function insightsOverlayClose(event) {
+  if (event.target === document.getElementById("insightsModal")) closeInsightsModal();
 }
 
 function openReport() {
@@ -1194,6 +1217,7 @@ window.addEventListener("keydown", e => {
     closeBillsModal();
     closeCurrencyModal();
     closeReport();
+    closeInsightsModal();
   }
 });
 

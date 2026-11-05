@@ -44,6 +44,10 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"></use></svg>
             <span>Report</span>
           </button>
+          <button id="aiInsightsBtn" class="btn-ai-insights btn-with-icon" title="View AI spending insights">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-spark"></use></svg>
+            <span>AI Insights</span>
+          </button>
         </div>
 
         <!-- Secondary Utilities -->
@@ -393,11 +397,6 @@
       </div>
       <div class="report-body">
         <div class="report-summary" id="reportSummary"></div>
-        <div class="report-section">
-          <div class="rc-title">AI Budget Insights</div>
-          <button type="button" id="insightsBtn" class="btn-secondary">Generate insights</button>
-          <p id="insightsResult" aria-live="polite"></p>
-        </div>
         <div class="report-charts-row">
           <div class="report-chart-box"><div class="rc-title">Monthly Income vs Expenses</div><canvas id="rLineChart"></canvas></div>
           <div class="report-chart-box"><div class="rc-title">Spending by Category</div><canvas id="rDonutChart"></canvas></div>
@@ -411,6 +410,25 @@
         <div class="report-section"><div class="rc-title">Month-by-Month Summary</div><div id="reportMonthTable"></div></div>
       </div>
     </div>
+  </div>
+
+  <!-- AI INSIGHTS MODAL -->
+  <div id="insightsModal" class="modal-overlay" style="display:none" onclick="insightsOverlayClose(event)">
+    <section class="modal-box insights-modal-box" role="dialog" aria-modal="true" aria-labelledby="insightsTitle">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-header-icon insights-icon-bg"><svg class="ui-icon" aria-hidden="true"><use href="#icon-spark"></use></svg></div>
+          <div>
+            <h2 class="modal-title" id="insightsTitle">AI Spending Insights</h2>
+            <p class="modal-sub">Personalized observations from your recent transactions</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeInsightsModal()" class="btn-icon icon-only" aria-label="Close AI insights"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+      </div>
+      <div class="insights-modal-body">
+        <div id="insightsResult" class="insights-result" aria-live="polite" aria-atomic="true">Your insights will appear here.</div>
+      </div>
+    </section>
   </div>
 
   <div id="toast" class="toast"></div>
