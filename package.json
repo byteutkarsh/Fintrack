@@ -4,5 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "groq-sdk": "^0.37.0"
   }
 }

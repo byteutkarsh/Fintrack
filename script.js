@@ -988,6 +988,40 @@ function updateCurrencyUI() {
 //  REPORT MODAL
 // ══════════════════════════════════════════════
 document.getElementById("reportBtn").addEventListener("click", openReport);
+document.getElementById("insightsBtn").addEventListener("click", generateInsights);
+
+async function generateInsights() {
+  const button = document.getElementById("insightsBtn");
+  const output = document.getElementById("insightsResult");
+  const recentTransactions = [...transactions]
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 20)
+    .map(({ date, text, category, amount }) => ({ date, text, category, amount }));
+
+  if (!recentTransactions.length) {
+    output.textContent = "Add transactions before requesting insights.";
+    return;
+  }
+
+  button.disabled = true;
+  output.textContent = "Generating insights…";
+  try {
+    const response = await fetch("/api/insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactions: recentTransactions }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Could not generate insights.");
+    }
+    output.textContent = data.text;
+  } catch (error) {
+    output.textContent = error.message || "Could not generate insights. Please try again.";
+  } finally {
+    button.disabled = false;
+  }
+}
 
 function openReport() {
   if (!transactions.length) return showToast("Add transactions first to view reports");
