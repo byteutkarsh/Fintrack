@@ -63,56 +63,6 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    if (pathname === "/api/insights") {
-      if (req.method !== "POST") {
-        res.setHeader("Allow", "POST");
-        return writeJson(res, 405, { error: "Method not allowed" });
-      }
-      if (!req.headers["content-type"]?.toLowerCase().startsWith("application/json")) {
-        return writeJson(res, 415, { error: "Content-Type must be application/json" });
-      }
-      if (!groq) {
-        return writeJson(res, 503, { error: "AI service is not configured" });
-      }
-
-      const body = await readJsonBody(req, 48 * 1024);
-      if (!Array.isArray(body?.transactions) || body.transactions.length === 0 || body.transactions.length > 50) {
-        return writeJson(res, 400, { error: "transactions must be an array containing 1 to 50 entries" });
-      }
-
-      const transactionsForPrompt = [];
-      for (const transaction of body.transactions) {
-        if (!transaction || typeof transaction !== "object" || Array.isArray(transaction)
-          || typeof transaction.amount !== "number" || !Number.isFinite(transaction.amount)
-          || typeof transaction.text !== "string" || typeof transaction.category !== "string"
-          || typeof transaction.date !== "string") {
-          return writeJson(res, 400, { error: "Each transaction needs a date, description, category, and finite amount" });
-        }
-        transactionsForPrompt.push({
-          date: transaction.date.slice(0, 32),
-          description: transaction.text.slice(0, 200),
-          category: transaction.category.slice(0, 100),
-          amount: transaction.amount,
-        });
-      }
-
-      const prompt = `Analyze the following financial transactions and provide three short, actionable budgeting insights or spending warnings.\n\nTransactions:\n${JSON.stringify(transactionsForPrompt)}`;
-      try {
-        const result = await groq.chat.completions.create({
-          model: "openai/gpt-oss-20b",
-          messages: [{ role: "user", content: prompt }],
-        });
-        const text = result.choices?.[0]?.message?.content;
-        if (typeof text !== "string" || !text.trim()) {
-          return writeJson(res, 502, { error: "AI service returned an empty response" });
-        }
-        return writeJson(res, 200, { text });
-      } catch (error) {
-        console.error("Groq insights request failed:", error?.message);
-        return writeJson(res, 502, { error: "Could not generate insights. Please try again." });
-      }
-    }
-
     if (req.method !== "GET" && req.method !== "HEAD") {
       return writeJson(res, 405, { error: "Method not allowed" });
     }

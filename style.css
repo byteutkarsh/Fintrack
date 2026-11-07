@@ -361,19 +361,6 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
-.btn-ai-insights {
-  background: linear-gradient(135deg, #6d5bd0, #8b5cf6);
-  color: #fff;
-  border: 1px solid rgba(109, 91, 208, 0.28);
-  box-shadow: 0 4px 14px rgba(109, 91, 208, 0.2);
-}
-
-.btn-ai-insights:hover {
-  background: linear-gradient(135deg, #5b4bb7, #7c3aed);
-  box-shadow: 0 6px 18px rgba(109, 91, 208, 0.3);
-  transform: translateY(-1px);
-}
-
 .action-badge {
   background: #dc2626;
   color: white;
@@ -1511,31 +1498,6 @@ select {
 
 .bills-modal-body {
   padding: 24px 28px 28px;
-}
-
-.insights-modal-box {
-  max-width: 640px;
-}
-
-.insights-icon-bg {
-  background: linear-gradient(135deg, #6d5bd0, #8b5cf6);
-  box-shadow: 0 4px 14px rgba(109, 91, 208, 0.28);
-}
-
-.insights-modal-body {
-  padding: 24px 28px 28px;
-}
-
-.insights-result {
-  min-height: 112px;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 15px;
-  background: var(--card-subtle);
-  color: var(--text);
-  font-size: 0.95rem;
-  line-height: 1.75;
-  white-space: pre-wrap;
 }
 
 .section-label {
