@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Groq from "groq-sdk";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || 3000);
@@ -29,7 +30,8 @@ const server = createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url || "/", "http://localhost").pathname;
 
-    if (pathname === "/api/ai") {
+    // Handles both the old route and the new insights route
+    if (pathname === "/api/ai" || pathname === "/api/insights") {
       if (req.method !== "POST") {
         res.setHeader("Allow", "POST");
         return writeJson(res, 405, { error: "Method not allowed" });
@@ -42,21 +44,31 @@ const server = createServer(async (req, res) => {
       }
 
       const body = await readJsonBody(req, MAX_AI_BODY_BYTES);
-      const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
-      if (!prompt || prompt.length > 8000) {
-        return writeJson(res, 400, { error: "prompt must be a non-empty string of at most 8000 characters" });
+      
+      // Support incoming data named either "prompt" or "data"
+      const incomingData = body?.prompt || body?.data;
+      const dataString = typeof incomingData === "string" ? incomingData.trim() : JSON.stringify(incomingData || {});
+
+      if (!dataString || dataString === "{}" || dataString.length > 8000) {
+        return writeJson(res, 400, { error: "Data must be provided and under 8000 characters" });
       }
 
       try {
         const result = await groq.chat.completions.create({
-          model: "openai/gpt-oss-20b",
-          messages: [{ role: "user", content: prompt }],
+          model: "llama3-8b-8192", // Using a valid, fast Groq model
+          messages: [
+            { role: "system", content: "You are a financial advisor for the FinTrack app. Analyze the provided spending data and give concise, actionable budgeting insights." },
+            { role: "user", content: `Analyze this spending data: ${dataString}` }
+          ],
         });
+        
         const text = result.choices?.[0]?.message?.content;
         if (typeof text !== "string" || !text.trim()) {
           return writeJson(res, 502, { error: "AI service returned an empty response" });
         }
-        return writeJson(res, 200, { text });
+        
+        // Returning both 'insights' and 'text' so your frontend won't break regardless of which it expects
+        return writeJson(res, 200, { insights: text, text: text });
       } catch (error) {
         console.error("Groq request failed:", error?.message);
         return writeJson(res, 502, { error: "AI request failed. Please try again." });
