@@ -623,6 +623,161 @@ document.getElementById("exportBtn").addEventListener("click", () => {
 });
 
 // ══════════════════════════════════════════════
+// AI INSIGHTS
+const aiInsightsBtn = document.getElementById("ai-insights-btn");
+const aiInsightsButtonText = aiInsightsBtn.textContent;
+
+aiInsightsBtn.addEventListener("click", async () => {
+  aiInsightsBtn.textContent = "Loading...";
+  aiInsightsBtn.disabled = true;
+
+  try {
+    const storedTransactions = loadStored("ft_transactions", []);
+    if (!storedTransactions.length) {
+      alert("Please add transactions before requesting AI insights.");
+      return;
+    }
+
+    const { fetchAIInsights } = await import("./ai-insights.js");
+    showAIInsights(await fetchAIInsights(storedTransactions));
+  } catch (error) {
+    const message = error instanceof TypeError || error instanceof SyntaxError
+      ? "Could not load AI insights. Check your connection and try again."
+      : error.message || "Could not load AI insights. Please try again.";
+    showToast(message);
+  } finally {
+    aiInsightsBtn.textContent = aiInsightsButtonText;
+    aiInsightsBtn.disabled = false;
+  }
+});
+
+function showAIInsights(text) {
+  const modal = document.getElementById("aiInsightsModal");
+  const content = document.getElementById("aiInsightsContent");
+  content.replaceChildren();
+  renderInsightMarkdown(content, text);
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+  modal.querySelector("button[aria-label='Close AI insights']").focus();
+}
+
+function closeAIInsights() {
+  const modal = document.getElementById("aiInsightsModal");
+  if (modal.style.display === "none") return;
+  modal.style.display = "none";
+  document.body.style.overflow = "";
+  aiInsightsBtn.focus();
+}
+
+function aiInsightsOverlayClose(event) {
+  if (event.target === document.getElementById("aiInsightsModal")) closeAIInsights();
+}
+
+function renderInsightMarkdown(container, markdown) {
+  const lines = String(markdown).replace(/\r/g, "").split("\n");
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line) { index++; continue; }
+
+    if (line.startsWith("|") && line.endsWith("|")) {
+      const tableLines = [];
+      while (index < lines.length && lines[index].trim().startsWith("|") && lines[index].trim().endsWith("|")) {
+        tableLines.push(lines[index++].trim());
+      }
+      appendInsightTable(container, tableLines);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      const element = document.createElement(heading[1].length === 1 ? "h3" : "h4");
+      appendInsightInline(element, heading[2]);
+      container.append(element);
+      index++;
+      continue;
+    }
+
+    const boldHeading = line.match(/^\*\*(.+)\*\*$/);
+    if (boldHeading) {
+      const element = document.createElement("h4");
+      element.textContent = boldHeading[1];
+      container.append(element);
+      index++;
+      continue;
+    }
+
+    if (/^[-*•]\s+/.test(line) || /^\d+[.)]\s+/.test(line)) {
+      const list = document.createElement("ul");
+      while (index < lines.length && (/^\s*[-*•]\s+/.test(lines[index]) || /^\s*\d+[.)]\s+/.test(lines[index]))) {
+        const item = document.createElement("li");
+        appendInsightInline(item, lines[index].trim().replace(/^(?:[-*•]|\d+[.)])\s+/, ""));
+        list.append(item);
+        index++;
+      }
+      container.append(list);
+      continue;
+    }
+
+    const paragraph = document.createElement("p");
+    appendInsightInline(paragraph, line);
+    container.append(paragraph);
+    index++;
+  }
+}
+
+function appendInsightTable(container, lines) {
+  const rows = lines
+    .filter(line => !/^\|?\s*:?-{3,}/.test(line))
+    .map(line => line.replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim()));
+  if (!rows.length) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "ai-insights-table-wrap";
+  const table = document.createElement("table");
+  table.className = "ai-insights-table";
+  const head = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  rows[0].forEach(value => {
+    const cell = document.createElement("th");
+    appendInsightInline(cell, value);
+    headerRow.append(cell);
+  });
+  head.append(headerRow);
+  table.append(head);
+
+  if (rows.length > 1) {
+    const body = document.createElement("tbody");
+    rows.slice(1).forEach(row => {
+      const tr = document.createElement("tr");
+      rows[0].forEach((_, cellIndex) => {
+        const cell = document.createElement("td");
+        appendInsightInline(cell, row[cellIndex] || "");
+        tr.append(cell);
+      });
+      body.append(tr);
+    });
+    table.append(body);
+  }
+
+  wrapper.append(table);
+  container.append(wrapper);
+}
+
+function appendInsightInline(element, text) {
+  const pattern = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0, match;
+  while ((match = pattern.exec(text))) {
+    element.append(document.createTextNode(text.slice(lastIndex, match.index)));
+    const strong = document.createElement("strong");
+    strong.textContent = match[1];
+    element.append(strong);
+    lastIndex = pattern.lastIndex;
+  }
+  element.append(document.createTextNode(text.slice(lastIndex)));
+}
+
 //  FILTERS & TABS
 // ══════════════════════════════════════════════
 searchInput.addEventListener("input", render);
@@ -1160,6 +1315,7 @@ window.addEventListener("keydown", e => {
     closeBillsModal();
     closeCurrencyModal();
     closeReport();
+    closeAIInsights();
   }
 });
 

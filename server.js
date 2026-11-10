@@ -55,7 +55,7 @@ const server = createServer(async (req, res) => {
 
       try {
         const result = await groq.chat.completions.create({
-          model: "llama3-8b-8192", // Using a valid, fast Groq model
+          model: "openai/gpt-oss-20b",
           messages: [
             { role: "system", content: "You are a financial advisor for the FinTrack app. Analyze the provided spending data and give concise, actionable budgeting insights." },
             { role: "user", content: `Analyze this spending data: ${dataString}` }

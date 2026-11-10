@@ -56,6 +56,7 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
             <span>Import</span>
           </button>
+          <button id="ai-insights-btn" class="btn-secondary sm" type="button">AI Insights</button>
           <input type="file" id="importFile" accept=".csv" style="display:none" />
           <button id="clearBtn" class="btn-ghost-danger sm" title="Reset all transactions" aria-label="Clear all transactions">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
@@ -404,6 +405,26 @@
           <div class="report-section"><div class="rc-title">Top 5 Income Sources</div><div id="reportTopInc"></div></div>
         </div>
         <div class="report-section"><div class="rc-title">Month-by-Month Summary</div><div id="reportMonthTable"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aiInsightsModal" class="modal-overlay ai-insights-overlay" style="display:none" onclick="aiInsightsOverlayClose(event)" role="dialog" aria-modal="true" aria-labelledby="aiInsightsTitle">
+    <div class="modal-box ai-insights-modal-box">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="ai-insights-modal-icon" aria-hidden="true">&#x2728;</div>
+          <div>
+            <h2 class="modal-title" id="aiInsightsTitle">Your AI Insights</h2>
+            <p class="modal-sub">A personal snapshot of your spending and saving</p>
+          </div>
+        </div>
+        <button onclick="closeAIInsights()" class="btn-icon icon-only" aria-label="Close AI insights"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+      </div>
+      <div id="aiInsightsContent" class="ai-insights-content" aria-live="polite"></div>
+      <div class="ai-insights-footer">
+        <span class="ai-insights-note">AI generated · For guidance only</span>
+        <button onclick="closeAIInsights()" class="btn-primary ai-insights-done">Done</button>
       </div>
     </div>
   </div>
